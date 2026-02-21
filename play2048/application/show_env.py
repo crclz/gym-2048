@@ -12,7 +12,7 @@ import gym_2048
 
 
 if __name__ == "__main__":
-    env: Game2048Env = gym.make("2048-v0", render_mode="rgb_array")
+    env: Game2048Env = gym.make("2048-v0", render_mode="human")
     a = env.reset()
 
     print("env reset output:", a)
@@ -27,6 +27,12 @@ if __name__ == "__main__":
         (obs, reward, terminated, truncated, info) = env.step(action)
         print("env step output. obs:", obs, "reward:", reward, "terminated:", terminated, "truncated:", truncated, "info:", info)
 
-    frame = env.render()
-    img = Image.fromarray(frame)
-    img.save("show_env.tmp.png")
+        if terminated or truncated:
+            print("terminated or truncated")
+            break
+
+        env.render()
+
+    # frame = env.render()
+    # img = Image.fromarray(frame)
+    # img.save("show_env.tmp.png")

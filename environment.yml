@@ -9,7 +9,7 @@ channels:
 dependencies:
   # 核心Python版本
   - python=3.13
-  # - gym
+  - pip
   - gymnasium
   - pillow
   - six
@@ -18,4 +18,5 @@ dependencies:
   - pygame
   
   # 通过pip安装的包（Conda源没有的包）
-  # - pip: []
+  - pip:
+    - stable-baselines3[extra]

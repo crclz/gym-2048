@@ -39,7 +39,7 @@ def stack(flat, layers=16):
 class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
     metadata = {
         "render_modes": ["human", "rgb_array"],
-        "render_fps": 3,
+        "render_fps": 0.5,
     }
 
     def __init__(self, render_mode=None, illegal_move_reward:float=0):  # 添加 render_mode 参数
@@ -72,6 +72,10 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
 
         # 渲染相关资源初始化
         self._font = None  # 字体资源，延迟初始化
+
+        # 新增：Pygame 相关变量
+        self.window = None
+        self.clock = None
 
     def set_illegal_move_reward(self, reward):
         """Define the reward/penalty for performing an illegal move. Also need
@@ -136,7 +140,7 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
             # Gymnasium 规范：未指定 render_mode 时调用 render 应返回 None 或报警
             return None
 
-        assert self.render_mode == "rgb_array"
+        assert self.render_mode in ("rgb_array", "human")
 
         # --- 渲染逻辑 (rgb_array) ---
         grey = (128, 128, 128)
@@ -187,11 +191,43 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
         # 转换为 numpy 数组 (H, W, C)
         rgb_array = np.array(canvas, dtype=np.uint8)
 
-        return rgb_array
+        if self.render_mode == "rgb_array":
+            return rgb_array
+
+        assert self.render_mode == "human"
+
+        import pygame # 延迟导入
+
+        if self.window is None:
+            pygame.init()
+            pygame.display.init()
+            # 窗口大小对应画布大小 (grid_size * 4)
+            window_size = self.grid_size * 4
+            self.window = pygame.display.set_mode((window_size, window_size))
+            pygame.display.set_caption("2048 Game")
+
+
+            
+        if self.clock is None:
+            self.clock = pygame.time.Clock()
+
+        surface = pygame.surfarray.make_surface(rgb_array.swapaxes(0, 1))
+        self.window.blit(surface, (0, 0))
+        
+        pygame.event.pump()
+        pygame.display.update()
+
+        # 控制帧率
+        self.clock.tick(self.metadata["render_fps"])
         
 
     def close(self):
         self._font = None
+        if self.window is not None:
+            import pygame
+            pygame.display.quit()
+            pygame.quit()
+            self.window = None
 
     # Implement 2048 game
     def add_tile(self):
