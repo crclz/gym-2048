@@ -37,9 +37,17 @@ def stack(flat, layers=16):
   return layered
 
 class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
-    metadata = {'render.modes': ['ansi', 'human', 'rgb_array']}
+    metadata = {
+        "render_modes": ["human", "rgb_array"],
+        "render_fps": 3,
+    }
 
-    def __init__(self):
+    def __init__(self, render_mode=None):  # 添加 render_mode 参数
+        # 验证 render_mode 合法性
+        assert render_mode is None or render_mode in self.metadata["render_modes"], \
+            f"Invalid render_mode {render_mode}, only support {self.metadata['render_modes']}"
+        self.render_mode = render_mode
+
         # Definitions for game. Board must be square.
         self.size = 4
         self.w = self.size
@@ -59,6 +67,9 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
 
         # Size of square for rendering
         self.grid_size = 70
+
+        # 渲染相关资源初始化
+        self._font = None  # 字体资源，延迟初始化
 
         # Initialise seed
         self.seed()
@@ -127,53 +138,72 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
         # Modified: Gymnasium reset returns (obs, info)
         return stack(self.Matrix), {}
 
-    def render(self, mode='human'):
-        if mode == 'rgb_array':
-            black = (0, 0, 0)
-            grey = (128, 128, 128)
-            white = (255, 255, 255)
-            tile_colour_map = {
-                2: (255, 0, 0),
-                4: (224, 32, 0),
-                8: (192, 64, 0),
-                16: (160, 96, 0),
-                32: (128, 128, 0),
-                64: (96, 160, 0),
-                128: (64, 192, 0),
-                256: (32, 224, 0),
-                512: (0, 255, 0),
-                1024: (0, 224, 32),
-                2048: (0, 192, 64),
-                4096: (0, 160, 96),
-            }
-            grid_size = self.grid_size
+    def render(self):
+        """渲染环境，符合 Gymnasium 最新规范"""
+        if self.render_mode is None:
+            # Gymnasium 规范：未指定 render_mode 时调用 render 应返回 None 或报警
+            return None
 
-            # Render with Pillow
-            pil_board = Image.new("RGB", (grid_size * 4, grid_size * 4))
-            draw = ImageDraw.Draw(pil_board)
-            draw.rectangle([0, 0, 4 * grid_size, 4 * grid_size], grey)
-            fnt = ImageFont.truetype('Arial.ttf', 30)
+        assert self.render_mode == "rgb_array"
 
-            for y in range(4):
-              for x in range(4):
-                 o = self.get(y, x)
-                 if o:
-                     draw.rectangle([x * grid_size, y * grid_size, (x + 1) * grid_size, (y + 1) * grid_size], tile_colour_map[o])
-                     (text_x_size, text_y_size) = draw.textsize(str(o), font=fnt)
-                     draw.text((x * grid_size + (grid_size - text_x_size) // 2, y * grid_size + (grid_size - text_y_size) // 2), str(o), font=fnt, fill=white)
-                     assert text_x_size < grid_size
-                     assert text_y_size < grid_size
+        # --- 渲染逻辑 (rgb_array) ---
+        grey = (128, 128, 128)
+        white = (255, 255, 255)
+        tile_colour_map = {
+            2: (255, 0, 0),
+            4: (224, 32, 0),
+            8: (192, 64, 0),
+            16: (160, 96, 0),
+            32: (128, 128, 0),
+            64: (96, 160, 0),
+            128: (64, 192, 0),
+            256: (32, 224, 0),
+            512: (0, 255, 0),
+            1024: (0, 224, 32),
+            2048: (0, 192, 64),
+            4096: (0, 160, 96),
+        }
+        grid_size = self.grid_size
 
-            return np.asarray(pil_board).swapaxes(0, 1)
+        if self._font is None:
+            try:
+                # 尝试加载中文字体或 Arial，size 根据 grid_size 动态调整更佳
+                self._font = ImageFont.truetype('Arial.ttf', 30)
+            except IOError:
+                self._font = ImageFont.load_default()
 
-        outfile = StringIO() if mode == 'ansi' else sys.stdout
-        s = 'Score: {}\n'.format(self.score)
-        s += 'Highest: {}\n'.format(self.highest())
-        npa = np.array(self.Matrix)
-        grid = npa.reshape((self.size, self.size))
-        s += "{}\n".format(grid)
-        outfile.write(s)
-        return outfile
+        # 创建画布
+        canvas = Image.new("RGB", (grid_size * 4, grid_size * 4), color=grey)
+        draw = ImageDraw.Draw(canvas)
+
+        for y in range(4):
+            for x in range(4):
+                val = self.get(y, x)
+                if val:
+                    color = tile_colour_map.get(val, (0, 128, 128))
+                    rect = [x * grid_size, y * grid_size, (x + 1) * grid_size, (y + 1) * grid_size]
+                    draw.rectangle(rect, fill=color)
+                    
+                    # --- Pillow 新版迁移：使用 textbbox 代替 textsize ---
+                    text = str(val)
+                    # 获取文字的边界框 [left, top, right, bottom]
+                    bbox = draw.textbbox((0, 0), text, font=self._font)
+                    text_w = bbox[2] - bbox[0]
+                    text_h = bbox[3] - bbox[1]
+                    
+                    # 计算居中坐标
+                    text_x = x * grid_size + (grid_size - text_w) // 2
+                    text_y = y * grid_size + (grid_size - text_h) // 2
+                    draw.text((text_x, text_y), text, font=self._font, fill=white)
+
+        # 转换为 numpy 数组 (H, W, C)
+        rgb_array = np.array(canvas, dtype=np.uint8)
+
+        return rgb_array
+        
+
+    def close(self):
+        self._font = None
 
     # Implement 2048 game
     def add_tile(self):

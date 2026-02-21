@@ -1,4 +1,4 @@
-import gym
+import gymnasium as gym
 import sys
 from PIL import Image
 import numpy as np
@@ -12,20 +12,21 @@ import gym_2048
 
 
 if __name__ == "__main__":
-    env: Game2048Env = gym.make("2048-v0")
+    env: Game2048Env = gym.make("2048-v0", render_mode="rgb_array")
     a = env.reset()
 
     print("env reset output:", a)
 
-    board = env.get_board()
-    print("env board:", board)
+    # board = env.get_board()
+    # print("env board:", board)
 
-    action = env.action_space.sample()
-    print("env action:", action)
-    img_array = env.render(mode="rgb_array")
+    for i in range(30):
+        action = env.action_space.sample()
+        print("env action:", action)
 
-    ob, reward, done, info = env.step(action)
-    print("env step output. ob:", ob, "reward:", reward, "done:", done, "info:", info)
+        (obs, reward, terminated, truncated, info) = env.step(action)
+        print("env step output. obs:", obs, "reward:", reward, "terminated:", terminated, "truncated:", truncated, "info:", info)
 
-    # img = Image.fromarray(img_array.astype(np.uint8)).transpose(Image.TRANSPOSE)
-    # img.save("./2048_manual_save.png")
+    frame = env.render()
+    img = Image.fromarray(frame)
+    img.save("show_env.tmp.png")
