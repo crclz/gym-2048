@@ -42,11 +42,13 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
         "render_fps": 3,
     }
 
-    def __init__(self, render_mode=None):  # 添加 render_mode 参数
+    def __init__(self, render_mode=None, illegal_move_reward:float=0):  # 添加 render_mode 参数
         # 验证 render_mode 合法性
         assert render_mode is None or render_mode in self.metadata["render_modes"], \
             f"Invalid render_mode {render_mode}, only support {self.metadata['render_modes']}"
         self.render_mode = render_mode
+
+        self.set_illegal_move_reward(illegal_move_reward)
 
         # Definitions for game. Board must be square.
         self.size = 4
@@ -71,23 +73,13 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
         # 渲染相关资源初始化
         self._font = None  # 字体资源，延迟初始化
 
-        # Initialise seed
-        self.seed()
-
-        # Reset ready for a game
-        self.reset()
-
-    def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
-
     def set_illegal_move_reward(self, reward):
         """Define the reward/penalty for performing an illegal move. Also need
             to update the reward range for this."""
         # Guess that the maximum reward is also 2**squares though you'll probably never get that.
         # (assume that illegal move reward is the lowest value that can be returned
         self.illegal_move_reward = reward
-        self.reward_range = (self.illegal_move_reward, float(2**self.squares))
+        # self.reward_range = (self.illegal_move_reward, float(2**self.squares))
 
     def set_max_tile(self, max_tile):
         """Define the maximum tile that will end the game (e.g. 2048). None means no limit.
@@ -114,7 +106,7 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
         except IllegalMove:
             logging.debug("Illegal move")
             info['illegal_move'] = True
-            done = True
+            done = True # 为了让episode不陷入死循环，这里直接kill。后续可以连续10个illegal move才kill
             reward = self.illegal_move_reward
 
         #print("Am I done? {}".format(done))
@@ -166,11 +158,7 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
         grid_size = self.grid_size
 
         if self._font is None:
-            try:
-                # 尝试加载中文字体或 Arial，size 根据 grid_size 动态调整更佳
-                self._font = ImageFont.truetype('Arial.ttf', 30)
-            except IOError:
-                self._font = ImageFont.load_default()
+            self._font = ImageFont.load_default(size=30)
 
         # 创建画布
         canvas = Image.new("RGB", (grid_size * 4, grid_size * 4), color=grey)
