@@ -57,7 +57,24 @@ if __name__ == "__main__":
     del envs
 
 
-    model = DQN("MlpPolicy", the_game_env, verbose=1, tensorboard_log="./tensorboard/dqn-1")
+    # random model
+    use_random = False
+
+    if use_random:
+        model = DQN(
+            "MlpPolicy", 
+            the_game_env, 
+            verbose=1, 
+            tensorboard_log="./tensorboard/dqn-rand",
+            learning_starts=10000000, # 设一个极大的值，让它永远不开始学习优化网络
+            exploration_fraction=1.0, # 整个训练过程都在探索
+            exploration_initial_eps=1.0, # 初始探索率为 1
+            exploration_final_eps=1.0    # 最终探索率也为 1
+        )
+
+    else:
+        model = DQN("MlpPolicy", the_game_env, verbose=1, tensorboard_log="./tensorboard/dqn-1")
+
     model.learn(total_timesteps=200_0000, callback=MaxTileCallback())
 
     # vec_env = model.get_env()
