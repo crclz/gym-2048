@@ -1,4 +1,5 @@
 import sys
+import time
 
 
 sys.path.append(".")
@@ -6,6 +7,7 @@ sys.path.append(".")
 from gym_2048.envs.game2048_env import Game2048Env
 from stable_baselines3.common.monitor import Monitor
 import gymnasium as gym
+from gymnasium.wrappers import TimeLimit
 
 from stable_baselines3 import DQN
 
@@ -13,6 +15,8 @@ from stable_baselines3.common.callbacks import BaseCallback
 
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.utils import set_random_seed
+
+TIME_STEP_LIMIT = 5000 # 理论上2000步能完成2048，给5000步，然后不惩罚任何无效移动
 
 class MaxTileCallback(BaseCallback):
     def __init__(self, verbose=0):
@@ -27,23 +31,28 @@ class MaxTileCallback(BaseCallback):
                 # 尝试从 info 中获取最大值，这里取决于你的环境实现
                 # 如果环境 info 里没有 'max_tile'，可能需要从 obs 提取
                 highest = info["highest"]
-                
+
                 self.logger.record_mean("rollout/highest_block", highest)
 
         self.logger.record("rollout/group_size", len(self.locals["dones"]))
         return True
 
+
 def make_env_maker(rank, seed=0):
     """
     实用工具函数，用于多进程环境创建
     """
+
     def _init():
-        env = gym.make("2048-v0", render_mode="rgb_array", illegal_move_reward=-2.0)
+        env = gym.make("2048-v0", render_mode="rgb_array", illegal_move_reward=0)
+        env = TimeLimit(env, TIME_STEP_LIMIT)
         env = Monitor(env)
         env.reset(seed=seed + rank)
         return env
+
     set_random_seed(seed)
     return _init
+
 
 if __name__ == "__main__":
     worker_count = 8
@@ -56,26 +65,36 @@ if __name__ == "__main__":
     # the_game_env = envs[0]
     del envs
 
-
     # random model
     use_random = False
 
     if use_random:
         model = DQN(
-            "MlpPolicy", 
-            the_game_env, 
-            verbose=1, 
+            "MlpPolicy",
+            the_game_env,
+            verbose=1,
             tensorboard_log="./tensorboard/dqn-rand",
-            learning_starts=10000000, # 设一个极大的值，让它永远不开始学习优化网络
-            exploration_fraction=1.0, # 整个训练过程都在探索
-            exploration_initial_eps=1.0, # 初始探索率为 1
-            exploration_final_eps=1.0    # 最终探索率也为 1
+            learning_starts=10000000,  # 设一个极大的值，让它永远不开始学习优化网络
+            exploration_fraction=1.0,  # 整个训练过程都在探索
+            exploration_initial_eps=1.0,  # 初始探索率为 1
+            exploration_final_eps=1.0,  # 最终探索率也为 1
         )
 
     else:
-        model = DQN("MlpPolicy", the_game_env, verbose=1, tensorboard_log="./tensorboard/dqn-1")
+        policy_kwargs = dict(net_arch=[256, 256, 256, 256])
+        model = DQN(
+            "MlpPolicy",
+            the_game_env,
+            learning_starts=50000,
+            verbose=1,
+            tensorboard_log="./tensorboard/dqn-1",
+            policy_kwargs=policy_kwargs,
+        )
 
-    model.learn(total_timesteps=200_0000, callback=MaxTileCallback())
+    print(model.policy)
+    time.sleep(3)
+
+    model.learn(total_timesteps=2000_0000, callback=MaxTileCallback(), log_interval=40)
 
     # vec_env = model.get_env()
     # obs = vec_env.reset()

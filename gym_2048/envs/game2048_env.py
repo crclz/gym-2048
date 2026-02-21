@@ -42,13 +42,14 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
         "render_fps": 6,
     }
 
-    def __init__(self, render_mode=None, illegal_move_reward:float=0):  # 添加 render_mode 参数
+    def __init__(self, render_mode=None, illegal_move_reward:float=0, illegal_move_truncate:int=-1):  # 添加 render_mode 参数
         # 验证 render_mode 合法性
         assert render_mode is None or render_mode in self.metadata["render_modes"], \
             f"Invalid render_mode {render_mode}, only support {self.metadata['render_modes']}"
         self.render_mode = render_mode
 
         self.set_illegal_move_reward(illegal_move_reward)
+        self.illegal_move_truncate = illegal_move_truncate
 
         self.illegal_move_count = 0
 
@@ -121,7 +122,7 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
             
             # 修改逻辑：增加计数，仅在达到5次时结束
             self.illegal_move_count += 1
-            if self.illegal_move_count >= 5:
+            if self.illegal_move_count >= self.illegal_move_truncate and self.illegal_move_truncate != -1:
                 done = True
             else:
                 done = False
