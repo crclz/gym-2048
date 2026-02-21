@@ -20,9 +20,11 @@ if __name__ == "__main__":
     # board = env.get_board()
     # print("env board:", board)
 
-    for i in range(30):
+    for i in range(5000):
         action = env.action_space.sample()
         print("env action:", action)
+
+        # action = 0
 
         (obs, reward, terminated, truncated, info) = env.step(action)
         print("env step output. obs:", obs, "reward:", reward, "terminated:", terminated, "truncated:", truncated, "info:", info)
@@ -32,6 +34,8 @@ if __name__ == "__main__":
             break
 
         env.render()
+
+    input("end")
 
     # frame = env.render()
     # img = Image.fromarray(frame)

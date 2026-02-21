@@ -39,7 +39,7 @@ def stack(flat, layers=16):
 class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
     metadata = {
         "render_modes": ["human", "rgb_array"],
-        "render_fps": 0.5,
+        "render_fps": 6,
     }
 
     def __init__(self, render_mode=None, illegal_move_reward:float=0):  # 添加 render_mode 参数
@@ -49,6 +49,8 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
         self.render_mode = render_mode
 
         self.set_illegal_move_reward(illegal_move_reward)
+
+        self.illegal_move_count = 0
 
         # Definitions for game. Board must be square.
         self.size = 4
@@ -107,10 +109,23 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
             self.add_tile()
             done = self.isend()
             reward = float(score)
+            
+            # 成功移动，重置无效计数
+            self.illegal_move_count = 0
+            
         except IllegalMove:
             logging.debug("Illegal move")
             info['illegal_move'] = True
-            done = True # 为了让episode不陷入死循环，这里直接kill。后续可以连续10个illegal move才kill
+            # done = True # 为了让episode不陷入死循环，这里直接kill。后续可以连续10个illegal move才kill
+
+            
+            # 修改逻辑：增加计数，仅在达到5次时结束
+            self.illegal_move_count += 1
+            if self.illegal_move_count >= 5:
+                done = True
+            else:
+                done = False
+                
             reward = self.illegal_move_reward
 
         #print("Am I done? {}".format(done))
@@ -126,6 +141,8 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
         super().reset(seed=seed)
         self.Matrix = np.zeros((self.h, self.w), int)
         self.score = 0
+        # 重置计数器
+        self.illegal_move_count = 0
 
         logging.debug("Adding tiles")
         self.add_tile()
