@@ -1,8 +1,8 @@
 from __future__ import print_function
 
-import gym
-from gym import spaces
-from gym.utils import seeding
+import gymnasium as gym  # Modified: Replace gym with gymnasium
+from gymnasium import spaces  # Modified: Use gymnasium spaces
+from gymnasium.utils import seeding  # Modified: Use gymnasium seeding
 
 import numpy as np
 
@@ -36,7 +36,7 @@ def stack(flat, layers=16):
 
   return layered
 
-class Game2048Env(gym.Env):
+class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
     metadata = {'render.modes': ['ansi', 'human', 'rgb_array']}
 
     def __init__(self):
@@ -109,10 +109,14 @@ class Game2048Env(gym.Env):
         #print("Am I done? {}".format(done))
         info['highest'] = self.highest()
 
-        # Return observation (board state), reward, done and info dict
-        return stack(self.Matrix), reward, done, info
+        # Modified: Gymnasium step returns (obs, reward, terminated, truncated, info)
+        # Truncated = False (no time limit/truncation in 2048)
+        return stack(self.Matrix), reward, done, False, info
 
-    def reset(self):
+    def reset(self, seed=None, options=None):  # Modified: Add seed/options for gymnasium
+        """Reset the environment to initial state (required for gymnasium)"""
+        # Modified: Call parent class reset to handle seed properly
+        super().reset(seed=seed)
         self.Matrix = np.zeros((self.h, self.w), int)
         self.score = 0
 
@@ -120,7 +124,8 @@ class Game2048Env(gym.Env):
         self.add_tile()
         self.add_tile()
 
-        return stack(self.Matrix)
+        # Modified: Gymnasium reset returns (obs, info)
+        return stack(self.Matrix), {}
 
     def render(self, mode='human'):
         if mode == 'rgb_array':

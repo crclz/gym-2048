@@ -8,9 +8,10 @@ channels:
   - conda-forge
 dependencies:
   # 核心Python版本
-  - python=3.9
-  - gym
-  - pillow<=9.1.0
+  - python=3.13
+  # - gym
+  - gymnasium
+  - pillow
   - six
   - numpy
   - pytest
