@@ -1,0 +1,20 @@
+# Conda环境配置文件
+# 可以通过命令创建环境: conda env create -f environment.yml
+# 更新已有环境: conda env update -f environment.yml --prune
+
+# 环境名称（可自定义）
+name: game2048
+channels:
+  - conda-forge
+dependencies:
+  # 核心Python版本
+  - python=3.9
+  - gym
+  - pillow<=9.1.0
+  - six
+  - numpy
+  - pytest
+  - pygame
+  
+  # 通过pip安装的包（Conda源没有的包）
+  # - pip: []
