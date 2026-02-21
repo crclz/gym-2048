@@ -16,6 +16,7 @@ dependencies:
   - numpy
   - pytest
   - pygame
+  - setuptools < 67.5.0 # tensorboard compatibility
   
   # 通过pip安装的包（Conda源没有的包）
   - pip:
