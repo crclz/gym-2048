@@ -22,9 +22,10 @@ if __name__ == "__main__":
 
     action = env.action_space.sample()
     print("env action:", action)
-    img_array = env.render(mode='rgb_array')
+    img_array = env.render(mode="rgb_array")
 
-    img = Image.fromarray(img_array.astype(np.uint8)).transpose(Image.TRANSPOSE)
-    img.save("./2048_manual_save.png")
+    ob, reward, done, info = env.step(action)
+    print("env step output. ob:", ob, "reward:", reward, "done:", done, "info:", info)
 
-
+    # img = Image.fromarray(img_array.astype(np.uint8)).transpose(Image.TRANSPOSE)
+    # img.save("./2048_manual_save.png")
