@@ -96,10 +96,10 @@ if __name__ == "__main__":
 
     eval_callback = BetterEvalCallback(
         eval_env,
-        n_eval_episodes=25,
+        n_eval_episodes=20,
         best_model_save_path="./checkpoints/best_model", # 自动保存得分最高的模型
         log_path="./logs/eval_results",                # 记录评估结果
-        eval_freq=int(10e4),  # 这个step不是训练step，而是callback step，要等待并行的才算step1次。建议积极尝试寻找合理的。
+        eval_freq=int(30e4),  # 这个step不是训练step，而是callback step，要等待并行的才算step1次。建议积极尝试寻找合理的。
         deterministic=True,                       # 评估时使用确定性动作（DQN 必选）
         render=False,                              # 评估时是否渲染（建议关闭以加速）
         info_metrics={
