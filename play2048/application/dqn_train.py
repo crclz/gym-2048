@@ -10,6 +10,7 @@ import gymnasium as gym
 from gymnasium.wrappers import TimeLimit
 
 from stable_baselines3 import DQN
+import numpy as np
 
 from stable_baselines3.common.callbacks import BaseCallback
 
@@ -37,6 +38,18 @@ class MaxTileCallback(BaseCallback):
         self.logger.record("rollout/group_size", len(self.locals["dones"]))
         return True
 
+class Log2RewardWrapper(gym.RewardWrapper):
+    def __init__(self, env):
+        super().__init__(env)
+
+    def reward(self, reward: float):
+        # 2048 中 reward 通常是合并产生的分数
+        # 如果 reward > 0（发生了合并），取 log2
+        # 如果 reward <= 0（比如无效移动或没合并），保持原样或设为 0
+        if reward > 0:
+            return float(np.log2(reward))
+        return float(reward)
+
 
 def make_env_maker(rank, seed=0):
     """
@@ -45,6 +58,7 @@ def make_env_maker(rank, seed=0):
 
     def _init():
         env = gym.make("2048-v0", render_mode="rgb_array", illegal_move_reward=0)
+        env = Log2RewardWrapper(env)
         env = TimeLimit(env, TIME_STEP_LIMIT)
         env = Monitor(env)
         env.reset(seed=seed + rank)
@@ -94,7 +108,9 @@ if __name__ == "__main__":
     print(model.policy)
     time.sleep(3)
 
-    model.learn(total_timesteps=2000_0000, callback=MaxTileCallback(), log_interval=40)
+    # exit(0)
+
+    model.learn(total_timesteps=20000_0000, callback=MaxTileCallback(), log_interval=40)
 
     # vec_env = model.get_env()
     # obs = vec_env.reset()
