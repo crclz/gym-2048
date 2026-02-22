@@ -19,7 +19,8 @@ from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.utils import set_random_seed
 
-TIME_STEP_LIMIT = 5000 # 理论上2000步能完成2048，给5000步，然后不惩罚任何无效移动
+TIME_STEP_LIMIT = 5000  # 理论上2000步能完成2048，给5000步，然后不惩罚任何无效移动
+
 
 class MaxTileCallback(BaseCallback):
     def __init__(self, verbose=0, metrics_prefix="rollout"):
@@ -41,8 +42,11 @@ class MaxTileCallback(BaseCallback):
 
                 self.logger.record_mean(f"{self.metrics_prefix}/highest_block", highest)
 
-        self.logger.record(f"{self.metrics_prefix}/group_size", len(self.locals["dones"]))
+        self.logger.record(
+            f"{self.metrics_prefix}/group_size", len(self.locals["dones"])
+        )
         return True
+
 
 class Log2RewardWrapper(gym.RewardWrapper):
     def __init__(self, env):
@@ -73,6 +77,7 @@ def make_env_maker(rank, seed=0):
     set_random_seed(seed)
     return _init
 
+
 def make_sub_process_env(count: int, eval=False):
 
     rank_add = 0
@@ -87,7 +92,6 @@ def make_sub_process_env(count: int, eval=False):
     return the_game_env
 
 
-
 if __name__ == "__main__":
     worker_count = 64
 
@@ -97,20 +101,20 @@ if __name__ == "__main__":
     eval_callback = BetterEvalCallback(
         eval_env,
         n_eval_episodes=20,
-        best_model_save_path="./checkpoints/best_model", # 自动保存得分最高的模型
-        log_path="./logs/eval_results",                # 记录评估结果
-        eval_freq=int(10e4),  # 这个step不是训练step，而是callback step，要等待并行的才算step1次。建议积极尝试寻找合理的。
-        deterministic=True,                       # 评估时使用确定性动作（DQN 必选）
-        render=False,                              # 评估时是否渲染（建议关闭以加速）
+        best_model_save_path="./checkpoints/best_model",  # 自动保存得分最高的模型
+        log_path="./logs/eval_results",  # 记录评估结果
+        # 这个step不是训练step，而是callback step，要等待并行的才算step1次。建议积极尝试寻找合理的。
+        eval_freq=int(10e4),
+        deterministic=True,  # 评估时使用确定性动作（DQN 必选）
+        render=False,  # 评估时是否渲染（建议关闭以加速）
         info_metrics={
             "avg": ["highest"],
             "max": ["highest"],
             "min": ["highest"],
-        }
+        },
     )
 
     use_random = False
-
 
     # if use_random:
     #     model = DQN(

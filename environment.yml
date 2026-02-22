@@ -17,6 +17,7 @@ dependencies:
   - pytest
   - pygame
   - setuptools < 67.5.0 # tensorboard compatibility
+  - sb3-contrib
   
   # 通过pip安装的包（Conda源没有的包）
   - pip:
