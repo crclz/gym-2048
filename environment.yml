@@ -18,7 +18,8 @@ dependencies:
   - pygame
   - setuptools < 67.5.0 # tensorboard compatibility
   - sb3-contrib
+  - stable-baselines3
   
-  # 通过pip安装的包（Conda源没有的包）
-  - pip:
-    - stable-baselines3[extra]
+  # # 通过pip安装的包（Conda源没有的包）
+  # - pip:
+  #   - [extra]

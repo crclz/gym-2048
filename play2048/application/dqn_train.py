@@ -2,21 +2,21 @@ import sys
 import time
 
 from play2048.infra.better_eval import BetterEvalCallback
-
+from sb3_contrib import QRDQN
 
 sys.path.append(".")
 
 from gym_2048.envs.game2048_env import Game2048Env
 from stable_baselines3.common.monitor import Monitor
 import gymnasium as gym
-from gymnasium.wrappers import TimeLimit
+from gymnasium.wrappers import NormalizeReward, TimeLimit
 
 from stable_baselines3 import DQN
 import numpy as np
 
 from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
 
-from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 from stable_baselines3.common.utils import set_random_seed
 
 TIME_STEP_LIMIT = 5000  # 理论上2000步能完成2048，给5000步，然后不惩罚任何无效移动
@@ -69,6 +69,7 @@ def make_env_maker(rank, seed=0):
     def _init():
         env = gym.make("2048-v0", render_mode="rgb_array", illegal_move_reward=0)
         env = Log2RewardWrapper(env)
+        env = NormalizeReward(env)
         env = TimeLimit(env, TIME_STEP_LIMIT)
         env = Monitor(env)
         env.reset(seed=seed + rank)
@@ -92,8 +93,49 @@ def make_sub_process_env(count: int, eval=False):
     return the_game_env
 
 
+def make_model(name: str):
+    if name == "random":
+        return DQN(
+            "MlpPolicy",
+            make_sub_process_env(8, eval=False),
+            verbose=1,
+            tensorboard_log="./tensorboard/dqn-rand",
+            learning_starts=10000000,  # 设一个极大的值，让它永远不开始学习优化网络
+            exploration_fraction=1.0,  # 整个训练过程都在探索
+            exploration_initial_eps=1.0,  # 初始探索率为 1
+            exploration_final_eps=1.0,  # 最终探索率也为 1
+        )
+
+    if name == "dqn":
+        policy_kwargs = dict(net_arch=[256, 256, 256, 256])
+        return DQN(
+            "MlpPolicy",
+            train_env,
+            learning_starts=50000,
+            # exploration_fraction=0.01,
+            verbose=1,
+            tensorboard_log="./tensorboard/dqn-1",
+            policy_kwargs=policy_kwargs,
+        )
+
+    if name == "qrdqn":
+        policy_kwargs = dict(net_arch=[256, 256, 256], n_quantiles=50)
+        return QRDQN(
+            "MlpPolicy",
+            train_env,
+            learning_starts=50000,
+            exploration_fraction=0.1,
+            verbose=1,
+            tensorboard_log="./tensorboard/qrdqn",
+            policy_kwargs=policy_kwargs,
+        )
+
+    raise ValueError(f"Unknown model name: {name}")
+
+
 if __name__ == "__main__":
     worker_count = 64
+    model_name = "qrdqn"
 
     eval_env = make_sub_process_env(worker_count, eval=True)
     train_env = make_sub_process_env(worker_count, eval=False)
@@ -116,28 +158,7 @@ if __name__ == "__main__":
 
     use_random = False
 
-    # if use_random:
-    #     model = DQN(
-    #         "MlpPolicy",
-    #         make_sub_process_env(8, eval=False),
-    #         verbose=1,
-    #         tensorboard_log="./tensorboard/dqn-rand",
-    #         learning_starts=10000000,  # 设一个极大的值，让它永远不开始学习优化网络
-    #         exploration_fraction=1.0,  # 整个训练过程都在探索
-    #         exploration_initial_eps=1.0,  # 初始探索率为 1
-    #         exploration_final_eps=1.0,  # 最终探索率也为 1
-    #     )
-
-    policy_kwargs = dict(net_arch=[256, 256, 256, 256])
-    model = DQN(
-        "MlpPolicy",
-        train_env,
-        learning_starts=50000,
-        # exploration_fraction=0.01,
-        verbose=1,
-        tensorboard_log="./tensorboard/dqn-1",
-        policy_kwargs=policy_kwargs,
-    )
+    model = make_model(model_name)
 
     print(model.policy)
     time.sleep(2)
