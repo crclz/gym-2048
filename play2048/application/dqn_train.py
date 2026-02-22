@@ -89,7 +89,7 @@ def make_sub_process_env(count: int, eval=False):
 
 
 if __name__ == "__main__":
-    worker_count = 8
+    worker_count = 64
 
     eval_env = make_sub_process_env(worker_count, eval=True)
     train_env = make_sub_process_env(worker_count, eval=False)
@@ -99,7 +99,7 @@ if __name__ == "__main__":
         n_eval_episodes=20,
         best_model_save_path="./checkpoints/best_model", # 自动保存得分最高的模型
         log_path="./logs/eval_results",                # 记录评估结果
-        eval_freq=int(30e4),  # 这个step不是训练step，而是callback step，要等待并行的才算step1次。建议积极尝试寻找合理的。
+        eval_freq=int(10e4),  # 这个step不是训练step，而是callback step，要等待并行的才算step1次。建议积极尝试寻找合理的。
         deterministic=True,                       # 评估时使用确定性动作（DQN 必选）
         render=False,                              # 评估时是否渲染（建议关闭以加速）
         info_metrics={
@@ -129,7 +129,7 @@ if __name__ == "__main__":
         "MlpPolicy",
         train_env,
         learning_starts=50000,
-        exploration_fraction=0.01,
+        # exploration_fraction=0.01,
         verbose=1,
         tensorboard_log="./tensorboard/dqn-1",
         policy_kwargs=policy_kwargs,
@@ -142,7 +142,7 @@ if __name__ == "__main__":
 
     callbacks = [eval_callback, MaxTileCallback()]
 
-    model.learn(total_timesteps=20000_0000, callback=callbacks, log_interval=40)
+    model.learn(total_timesteps=20000_0000, callback=callbacks, log_interval=60)
 
     # vec_env = model.get_env()
     # obs = vec_env.reset()
