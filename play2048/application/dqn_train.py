@@ -12,7 +12,7 @@ from gymnasium.wrappers import TimeLimit
 from stable_baselines3 import DQN
 import numpy as np
 
-from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
 
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.utils import set_random_seed
@@ -20,9 +20,13 @@ from stable_baselines3.common.utils import set_random_seed
 TIME_STEP_LIMIT = 5000 # 理论上2000步能完成2048，给5000步，然后不惩罚任何无效移动
 
 class MaxTileCallback(BaseCallback):
-    def __init__(self, verbose=0):
+    def __init__(self, verbose=0, metrics_prefix="rollout"):
+        """
+        metrics_prefix: rollout, eval
+        """
         super(MaxTileCallback, self).__init__(verbose)
-        self.max_tiles = []
+        self.metrics_prefix = metrics_prefix
+        # self.max_tiles = []
 
     def _on_step(self) -> bool:
         # 检查是否有 episode 结束
@@ -33,9 +37,9 @@ class MaxTileCallback(BaseCallback):
                 # 如果环境 info 里没有 'max_tile'，可能需要从 obs 提取
                 highest = info["highest"]
 
-                self.logger.record_mean("rollout/highest_block", highest)
+                self.logger.record_mean(f"{self.metrics_prefix}/highest_block", highest)
 
-        self.logger.record("rollout/group_size", len(self.locals["dones"]))
+        self.logger.record(f"{self.metrics_prefix}/group_size", len(self.locals["dones"]))
         return True
 
 class Log2RewardWrapper(gym.RewardWrapper):
@@ -67,50 +71,72 @@ def make_env_maker(rank, seed=0):
     set_random_seed(seed)
     return _init
 
+def make_sub_process_env(count: int, eval=False):
+
+    rank_add = 0
+    if eval:
+        rank_add = 5555
+
+    envs = []
+    for i in range(worker_count):
+        envs.append(make_env_maker(rank_add + i))
+
+    the_game_env = SubprocVecEnv(envs)
+    return the_game_env
+
+
 
 if __name__ == "__main__":
     worker_count = 8
 
-    envs = []
-    for i in range(worker_count):
-        envs.append(make_env_maker(i))
+    eval_env = make_sub_process_env(worker_count, eval=True)
+    train_env = make_sub_process_env(worker_count, eval=False)
 
-    the_game_env = SubprocVecEnv(envs)
-    # the_game_env = envs[0]
-    del envs
+    eval_callback = EvalCallback(
+        eval_env, 
+        best_model_save_path="./checkpoints/best_model", # 自动保存得分最高的模型
+        log_path="./logs/eval_results",                # 记录评估结果
+        eval_freq=int(20e4),                          # 
+        n_eval_episodes=10,                       # 每次评估跑 10 场取平均值
+        deterministic=True,                       # 评估时使用确定性动作（DQN 必选）
+        render=False,                              # 评估时是否渲染（建议关闭以加速）
+        callback_after_eval=MaxTileCallback(metrics_prefix="eval"),
+    )
 
-    # random model
     use_random = False
 
-    if use_random:
-        model = DQN(
-            "MlpPolicy",
-            the_game_env,
-            verbose=1,
-            tensorboard_log="./tensorboard/dqn-rand",
-            learning_starts=10000000,  # 设一个极大的值，让它永远不开始学习优化网络
-            exploration_fraction=1.0,  # 整个训练过程都在探索
-            exploration_initial_eps=1.0,  # 初始探索率为 1
-            exploration_final_eps=1.0,  # 最终探索率也为 1
-        )
 
-    else:
-        policy_kwargs = dict(net_arch=[256, 256, 256, 256])
-        model = DQN(
-            "MlpPolicy",
-            the_game_env,
-            learning_starts=50000,
-            verbose=1,
-            tensorboard_log="./tensorboard/dqn-1",
-            policy_kwargs=policy_kwargs,
-        )
+    # if use_random:
+    #     model = DQN(
+    #         "MlpPolicy",
+    #         make_sub_process_env(8, eval=False),
+    #         verbose=1,
+    #         tensorboard_log="./tensorboard/dqn-rand",
+    #         learning_starts=10000000,  # 设一个极大的值，让它永远不开始学习优化网络
+    #         exploration_fraction=1.0,  # 整个训练过程都在探索
+    #         exploration_initial_eps=1.0,  # 初始探索率为 1
+    #         exploration_final_eps=1.0,  # 最终探索率也为 1
+    #     )
+
+    policy_kwargs = dict(net_arch=[256, 256, 256, 256])
+    model = DQN(
+        "MlpPolicy",
+        train_env,
+        learning_starts=50000,
+        exploration_fraction=0.01,
+        verbose=1,
+        tensorboard_log="./tensorboard/dqn-1",
+        policy_kwargs=policy_kwargs,
+    )
 
     print(model.policy)
-    time.sleep(3)
+    time.sleep(2)
 
     # exit(0)
 
-    model.learn(total_timesteps=20000_0000, callback=MaxTileCallback(), log_interval=40)
+    callbacks = [eval_callback, MaxTileCallback()]
+
+    model.learn(total_timesteps=20000_0000, callback=callbacks, log_interval=40)
 
     # vec_env = model.get_env()
     # obs = vec_env.reset()
