@@ -1,6 +1,8 @@
 import sys
 import time
 
+from play2048.infra.better_eval import BetterEvalCallback
+
 
 sys.path.append(".")
 
@@ -92,15 +94,19 @@ if __name__ == "__main__":
     eval_env = make_sub_process_env(worker_count, eval=True)
     train_env = make_sub_process_env(worker_count, eval=False)
 
-    eval_callback = EvalCallback(
-        eval_env, 
+    eval_callback = BetterEvalCallback(
+        eval_env,
+        n_eval_episodes=25,
         best_model_save_path="./checkpoints/best_model", # 自动保存得分最高的模型
         log_path="./logs/eval_results",                # 记录评估结果
-        eval_freq=int(20e4),                          # 
-        n_eval_episodes=10,                       # 每次评估跑 10 场取平均值
+        eval_freq=int(10e4),  # 这个step不是训练step，而是callback step，要等待并行的才算step1次。建议积极尝试寻找合理的。
         deterministic=True,                       # 评估时使用确定性动作（DQN 必选）
         render=False,                              # 评估时是否渲染（建议关闭以加速）
-        callback_after_eval=MaxTileCallback(metrics_prefix="eval"),
+        info_metrics={
+            "avg": ["highest"],
+            "max": ["highest"],
+            "min": ["highest"],
+        }
     )
 
     use_random = False
