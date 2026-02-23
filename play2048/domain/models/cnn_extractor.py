@@ -21,12 +21,12 @@ class CnnExtractor(BaseFeaturesExtractor):
                     # 第一层：2x2, 256 filters, 无 padding
                     # Input: (N, 16, 4, 4) -> Output: (N, 256, 3, 3)
                     ("conv1", nn.Conv2d(input_channels, 256, kernel_size=2, stride=1, padding=0)),
-                    ("ln1", nn.LayerNorm([256, 3, 3])),
+                    # ("ln1", nn.LayerNorm([256, 3, 3])),
                     ("relu1", nn.ReLU()),
                     # 第二层：2x2, 256 filters, 无 padding
                     # Input: (N, 256, 3, 3) -> Output: (N, 256, 2, 2)
                     ("conv2", nn.Conv2d(256, 256, kernel_size=2, stride=1, padding=0)),
-                    ("ln2", nn.LayerNorm([256, 2, 2])),
+                    # ("ln2", nn.LayerNorm([256, 2, 2])),
                     ("relu2", nn.ReLU()),
                     # 展平: (N, 256, 2, 2) -> (N, 1024)
                     ("flatten", nn.Flatten()),

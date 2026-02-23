@@ -8,7 +8,7 @@ from sb3_contrib import QRDQN
 
 sys.path.append(".")
 
-from gym_2048.envs.game2048_env import Game2048Env
+from gym_2048.envs.game2048_env import Game2048Env  # noqa: F401
 from stable_baselines3.common.monitor import Monitor
 import gymnasium as gym
 from gymnasium.wrappers import NormalizeReward, TimeLimit
@@ -91,14 +91,14 @@ def make_sub_process_env(count: int, eval=False):
         rank_add = 5555
 
     envs = []
-    for i in range(worker_count):
+    for i in range(count):
         envs.append(make_env_maker(rank_add + i))
 
     the_game_env = SubprocVecEnv(envs)
     return the_game_env
 
 
-def make_model(name: str):
+def make_model(env, name: str):
     if name == "random":
         return DQN(
             "MlpPolicy",
@@ -115,7 +115,7 @@ def make_model(name: str):
         policy_kwargs = dict(net_arch=[256, 256, 256, 256])
         return DQN(
             "MlpPolicy",
-            train_env,
+            env,
             learning_starts=50000,
             # exploration_fraction=0.01,
             verbose=1,
@@ -127,9 +127,9 @@ def make_model(name: str):
         policy_kwargs = dict(net_arch=[256, 256, 256], n_quantiles=50)
         return QRDQN(
             "MlpPolicy",
-            train_env,
+            env,
             learning_starts=50000,
-            exploration_fraction=0.1,
+            # exploration_fraction=0.1,
             verbose=1,
             tensorboard_log="./tensorboard/qrdqn",
             policy_kwargs=policy_kwargs,
@@ -143,7 +143,7 @@ def make_model(name: str):
         )
         return DQN(
             "MlpPolicy",
-            train_env,
+            env,
             learning_starts=50000,
             # exploration_fraction=0.01,
             verbose=1,
@@ -151,12 +151,29 @@ def make_model(name: str):
             policy_kwargs=policy_kwargs,
         )
 
+    if name == "qrdqn-conv":
+        policy_kwargs = dict(
+            features_extractor_class=CnnExtractor,
+            features_extractor_kwargs=dict(),
+            net_arch=[],
+            n_quantiles=50,
+        )
+        return QRDQN(
+            "MlpPolicy",
+            env,
+            learning_starts=50000,
+            # exploration_fraction=0.1,
+            verbose=1,
+            tensorboard_log="./tensorboard/qrdqn-cnn",
+            policy_kwargs=policy_kwargs,
+        )
+
     raise ValueError(f"Unknown model name: {name}")
 
 
-if __name__ == "__main__":
+def main():
     worker_count = 64
-    model_name = "dqn-conv"
+    model_name = "qrdqn-conv"
 
     eval_env = make_sub_process_env(worker_count, eval=True)
     train_env = make_sub_process_env(worker_count, eval=False)
@@ -167,7 +184,7 @@ if __name__ == "__main__":
         best_model_save_path="./checkpoints/best_model",  # 自动保存得分最高的模型
         log_path="./logs/eval_results",  # 记录评估结果
         # 这个step不是训练step，而是callback step，要等待并行的才算step1次。建议积极尝试寻找合理的。
-        eval_freq=int(10e4),
+        eval_freq=int(3e4),
         deterministic=True,  # 评估时使用确定性动作（DQN 必选）
         render=False,  # 评估时是否渲染（建议关闭以加速）
         info_metrics={
@@ -177,9 +194,7 @@ if __name__ == "__main__":
         },
     )
 
-    use_random = False
-
-    model = make_model(model_name)
+    model = make_model(train_env, model_name)
 
     print(model.policy)
     time.sleep(2)
@@ -199,3 +214,6 @@ if __name__ == "__main__":
     # VecEnv resets automatically
     # if done:
     #   obs = vec_env.reset()
+
+if __name__ == "__main__":
+    main()
