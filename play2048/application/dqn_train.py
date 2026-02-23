@@ -1,6 +1,8 @@
 import sys
 import time
+from typing import SupportsFloat
 
+from play2048.domain.models.cnn_extractor import CnnExtractor
 from play2048.infra.better_eval import BetterEvalCallback
 from sb3_contrib import QRDQN
 
@@ -52,13 +54,16 @@ class Log2RewardWrapper(gym.RewardWrapper):
     def __init__(self, env):
         super().__init__(env)
 
-    def reward(self, reward: float):
+    def reward(self, reward: SupportsFloat): 
         # 2048 中 reward 通常是合并产生的分数
         # 如果 reward > 0（发生了合并），取 log2
         # 如果 reward <= 0（比如无效移动或没合并），保持原样或设为 0
+        reward = float(reward)
+
         if reward > 0:
             return float(np.log2(reward))
-        return float(reward)
+
+        return reward
 
 
 def make_env_maker(rank, seed=0):
@@ -130,12 +135,27 @@ def make_model(name: str):
             policy_kwargs=policy_kwargs,
         )
 
+    if name == "dqn-conv":
+        policy_kwargs = dict(
+            features_extractor_class=CnnExtractor,
+            features_extractor_kwargs={},
+        )
+        return DQN(
+            "MlpPolicy",
+            train_env,
+            learning_starts=50000,
+            # exploration_fraction=0.01,
+            verbose=1,
+            tensorboard_log="./tensorboard/dqn-conv",
+            policy_kwargs=policy_kwargs,
+        )
+
     raise ValueError(f"Unknown model name: {name}")
 
 
 if __name__ == "__main__":
     worker_count = 64
-    model_name = "qrdqn"
+    model_name = "dqn-conv"
 
     eval_env = make_sub_process_env(worker_count, eval=True)
     train_env = make_sub_process_env(worker_count, eval=False)
