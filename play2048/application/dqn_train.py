@@ -138,7 +138,8 @@ def make_model(name: str):
     if name == "dqn-conv":
         policy_kwargs = dict(
             features_extractor_class=CnnExtractor,
-            features_extractor_kwargs={},
+            features_extractor_kwargs=dict(),
+            net_arch=[],
         )
         return DQN(
             "MlpPolicy",
@@ -187,7 +188,7 @@ if __name__ == "__main__":
 
     callbacks = [eval_callback, MaxTileCallback()]
 
-    model.learn(total_timesteps=20000_0000, callback=callbacks, log_interval=60)
+    model.learn(total_timesteps=2000_0000, callback=callbacks, log_interval=60)
 
     # vec_env = model.get_env()
     # obs = vec_env.reset()
