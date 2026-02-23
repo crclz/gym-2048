@@ -31,7 +31,7 @@ class MaxTileCallback(BaseCallback):
         """
         super(MaxTileCallback, self).__init__(verbose)
         self.metrics_prefix = metrics_prefix
-        
+
         # self.max_tiles = []
 
     def _on_step(self) -> bool:
@@ -49,6 +49,34 @@ class MaxTileCallback(BaseCallback):
             f"{self.metrics_prefix}/group_size", len(self.locals["dones"])
         )
         return True
+
+class StepFrequencyMonitorCallback(BaseCallback):
+    def __init__(self, verbose=0):
+        """
+        metrics_prefix: rollout, eval
+        """
+        super(StepFrequencyMonitorCallback, self).__init__(verbose)
+
+        self.WINDOW_SIZE_SECOND = 60
+        
+        self.window_id = 0
+        self.window_step_count = 0
+
+    def _on_step(self) -> bool:
+        this_window_id = int(time.time() / self.WINDOW_SIZE_SECOND)
+
+        if this_window_id != self.window_id:
+            # emit
+            self.logger.record("rollout/minute_step_count", self.window_step_count)
+            # clear window
+            self.window_step_count = 0
+            self.window_id = this_window_id
+        
+        # add to window
+        self.window_step_count += 1
+
+        return True
+
 
 
 class Log2RewardWrapper(gym.RewardWrapper):
@@ -73,7 +101,7 @@ def make_env_maker(rank, seed=0):
     """
 
     def _init():
-        env = gym.make("2048-v0", render_mode="rgb_array", illegal_move_reward=-0.0)
+        env = gym.make("2048-v0", render_mode="rgb_array", illegal_move_reward=-0.1)
         # env = Log2RewardWrapper(env)
         # env = NormalizeReward(env)
         env = TimeLimit(env, TIME_STEP_LIMIT)
@@ -167,8 +195,9 @@ def make_model(env, name: str, device: str):
             "MlpPolicy",
             env,
             learning_starts=50000,
-            gamma=0.999, # 长远
-            batch_size=128,
+            gamma=0.99, # 长远
+            # batch_size对应learning rate也要调整
+            # batch_size=32,
             exploration_fraction=0.02,
             verbose=1,
             tensorboard_log="./tensorboard/qrdqn-cnn",
@@ -189,7 +218,7 @@ def main():
 
     eval_callback = BetterEvalCallback(
         eval_env,
-        n_eval_episodes=20,
+        n_eval_episodes=120,
         best_model_save_path="./checkpoints/best_model",  # 自动保存得分最高的模型
         log_path="./logs/eval_results",  # 记录评估结果
         # 这个step不是训练step，而是callback step，要等待并行的才算step1次。建议积极尝试寻找合理的。
@@ -210,7 +239,7 @@ def main():
 
     # exit(0)
 
-    callbacks = [eval_callback, MaxTileCallback()]
+    callbacks = [eval_callback, MaxTileCallback(), StepFrequencyMonitorCallback()]
 
     model.learn(total_timesteps=2000_0000*10, callback=callbacks, log_interval=60)
 

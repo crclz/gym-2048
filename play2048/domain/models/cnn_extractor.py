@@ -80,6 +80,8 @@ class MultiBranchCnnExtractor(BaseFeaturesExtractor):
         # Total Concat Size = 1536 + 1536 + 1024 + 1152 + 1152 + 1024 = 7424
         concat_size = 7424
 
+        self.ln = nn.LayerNorm(concat_size)
+
         self.fc1 = nn.Linear(concat_size, 512)
         self.fc2 = nn.Linear(512, features_dim)
         self.relu = nn.ReLU()
@@ -118,6 +120,9 @@ class MultiBranchCnnExtractor(BaseFeaturesExtractor):
             torch.flatten(relu22, 1)
         ], dim=1)
 
+        # LayerNorm
+        h = self.ln(h)
+        
         # FC Layers
         linear_1 = self.relu(self.fc1(h))
         linear_2 = self.relu(self.fc2(linear_1))
