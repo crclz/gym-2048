@@ -2,7 +2,7 @@ import sys
 import time
 from typing import SupportsFloat
 
-from play2048.domain.models.cnn_extractor import CnnExtractor
+from play2048.domain.models.cnn_extractor import CnnExtractor, MultiBranchCnnExtractor
 from play2048.infra.better_eval import BetterEvalCallback
 from sb3_contrib import QRDQN
 
@@ -16,9 +16,9 @@ from gymnasium.wrappers import NormalizeReward, TimeLimit
 from stable_baselines3 import DQN
 import numpy as np
 
-from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
+from stable_baselines3.common.callbacks import BaseCallback
 
-from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
+from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.utils import set_random_seed
 
 TIME_STEP_LIMIT = 5000  # 理论上2000步能完成2048，给5000步，然后不惩罚任何无效移动
@@ -31,6 +31,7 @@ class MaxTileCallback(BaseCallback):
         """
         super(MaxTileCallback, self).__init__(verbose)
         self.metrics_prefix = metrics_prefix
+        
         # self.max_tiles = []
 
     def _on_step(self) -> bool:
@@ -72,9 +73,9 @@ def make_env_maker(rank, seed=0):
     """
 
     def _init():
-        env = gym.make("2048-v0", render_mode="rgb_array", illegal_move_reward=0)
-        env = Log2RewardWrapper(env)
-        env = NormalizeReward(env)
+        env = gym.make("2048-v0", render_mode="rgb_array", illegal_move_reward=-0.0)
+        # env = Log2RewardWrapper(env)
+        # env = NormalizeReward(env)
         env = TimeLimit(env, TIME_STEP_LIMIT)
         env = Monitor(env)
         env.reset(seed=seed + rank)
@@ -157,7 +158,7 @@ def make_model(env, name: str, device: str):
 
     if name == "qrdqn-conv":
         policy_kwargs = dict(
-            features_extractor_class=CnnExtractor,
+            features_extractor_class=MultiBranchCnnExtractor,
             features_extractor_kwargs=dict(),
             net_arch=[],
             n_quantiles=50,
@@ -166,7 +167,9 @@ def make_model(env, name: str, device: str):
             "MlpPolicy",
             env,
             learning_starts=50000,
-            # exploration_fraction=0.1,
+            gamma=0.999, # 长远
+            batch_size=128,
+            exploration_fraction=0.02,
             verbose=1,
             tensorboard_log="./tensorboard/qrdqn-cnn",
             policy_kwargs=policy_kwargs,
@@ -209,7 +212,7 @@ def main():
 
     callbacks = [eval_callback, MaxTileCallback()]
 
-    model.learn(total_timesteps=2000_0000, callback=callbacks, log_interval=60)
+    model.learn(total_timesteps=2000_0000*10, callback=callbacks, log_interval=60)
 
     # vec_env = model.get_env()
     # obs = vec_env.reset()
