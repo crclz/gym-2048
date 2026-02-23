@@ -98,7 +98,7 @@ def make_sub_process_env(count: int, eval=False):
     return the_game_env
 
 
-def make_model(env, name: str):
+def make_model(env, name: str, device: str):
     if name == "random":
         return DQN(
             "MlpPolicy",
@@ -109,6 +109,7 @@ def make_model(env, name: str):
             exploration_fraction=1.0,  # 整个训练过程都在探索
             exploration_initial_eps=1.0,  # 初始探索率为 1
             exploration_final_eps=1.0,  # 最终探索率也为 1
+            device=device,
         )
 
     if name == "dqn":
@@ -121,6 +122,7 @@ def make_model(env, name: str):
             verbose=1,
             tensorboard_log="./tensorboard/dqn-1",
             policy_kwargs=policy_kwargs,
+            device=device,
         )
 
     if name == "qrdqn":
@@ -133,6 +135,7 @@ def make_model(env, name: str):
             verbose=1,
             tensorboard_log="./tensorboard/qrdqn",
             policy_kwargs=policy_kwargs,
+            device=device,
         )
 
     if name == "dqn-conv":
@@ -149,6 +152,7 @@ def make_model(env, name: str):
             verbose=1,
             tensorboard_log="./tensorboard/dqn-conv",
             policy_kwargs=policy_kwargs,
+            device=device,
         )
 
     if name == "qrdqn-conv":
@@ -166,6 +170,7 @@ def make_model(env, name: str):
             verbose=1,
             tensorboard_log="./tensorboard/qrdqn-cnn",
             policy_kwargs=policy_kwargs,
+            device=device,
         )
 
     raise ValueError(f"Unknown model name: {name}")
@@ -173,6 +178,7 @@ def make_model(env, name: str):
 
 def main():
     worker_count = 64
+    device = "mps"
     model_name = "qrdqn-conv"
 
     eval_env = make_sub_process_env(worker_count, eval=True)
@@ -194,7 +200,7 @@ def main():
         },
     )
 
-    model = make_model(train_env, model_name)
+    model = make_model(train_env, model_name, device)
 
     print(model.policy)
     time.sleep(2)
