@@ -102,7 +102,7 @@ def make_env_maker(rank, seed=0):
 
     def _init():
         env = gym.make("2048-v0", render_mode="rgb_array", illegal_move_reward=-0.1)
-        # env = Log2RewardWrapper(env)
+        env = Log2RewardWrapper(env)
         # env = NormalizeReward(env)
         env = TimeLimit(env, TIME_STEP_LIMIT)
         env = Monitor(env)
