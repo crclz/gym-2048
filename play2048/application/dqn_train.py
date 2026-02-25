@@ -94,6 +94,47 @@ class Log2RewardWrapper(gym.RewardWrapper):
 
         return reward
 
+class Game2048RewardWrapper(gym.Wrapper):
+    """
+    2048游戏奖励包装器：
+    1. 将原始合并奖励做 log₂ 处理（兼容非法移动的0奖励）
+    2. 从info中提取corner_reward，乘以指定系数后叠加到log₂合并奖励上
+    3. 不修改其他返回值（obs/terminated/truncated/info）
+    """
+    def __init__(self, env, corner_coeff: float = 10.0):
+        """
+        参数说明：
+        - env: 原始的Game2048Env环境实例
+        - corner_coeff: corner_reward的系数（推荐默认10.0，合并优先设5~8，角落优先设12~15）
+        """
+        super().__init__(env)
+        self.corner_coeff = corner_coeff
+
+    def step(self, action):
+        """重写step方法，处理奖励逻辑"""
+        # 调用原始环境的step方法，获取原始返回值
+        obs, reward, terminated, truncated, info = self.env.step(action)
+
+        reward = float(reward)
+        
+        # 1. log2 合并奖励
+        if reward > 0:
+            reward = np.log2(reward)
+        
+        # 2. 处理角落奖励：提取info中的corner_reward并乘以系数
+        # 兼容info中无corner_reward的情况（设为0）
+        corner_reward = self.corner_coeff * info.get('corner_reward', 0.0)
+        
+        # 3. 总奖励 = log₂合并奖励 + 系数化角落奖励
+        reward += corner_reward
+        
+        # 返回处理后的奖励，其他值保持不变
+        return obs, reward, terminated, truncated, info
+
+    # reset方法无需修改，直接继承父类逻辑
+    def reset(self, seed=None, options=None):
+        return self.env.reset(seed=seed, options=options)
+
 
 def make_env_maker(rank, seed=0):
     """
@@ -103,6 +144,7 @@ def make_env_maker(rank, seed=0):
     def _init():
         env = gym.make("2048-v0", render_mode="rgb_array", illegal_move_reward=-5.0)
         env = Log2RewardWrapper(env)
+        # env = Game2048RewardWrapper(env)
         # env = NormalizeReward(env)
         env = TimeLimit(env, TIME_STEP_LIMIT)
         env = Monitor(env)

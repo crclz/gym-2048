@@ -42,6 +42,16 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
         "render_fps": 6,
     }
 
+    # ========== 新增：定义角落奖励的权重矩阵 ==========
+    WEIGHT_MATRIX = np.array([
+        [2**0, 2**1, 2**2, 2**3],
+        [2**4, 2**5, 2**6, 2**7],
+        [2**8, 2**9, 2**10, 2**11],
+        [2**12, 2**13, 2**14, 2**15]
+    ])
+
+    WEIGHT_MATRIX_SUM = np.sum(WEIGHT_MATRIX)
+
     def __init__(self, render_mode=None, illegal_move_reward:float=0, illegal_move_truncate:int=-1):  # 添加 render_mode 参数
         # 验证 render_mode 合法性
         assert render_mode is None or render_mode in self.metadata["render_modes"], \
@@ -67,7 +77,7 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
         # Suppose that the maximum tile is as if you have powers of 2 across the board.
         layers = self.squares
         self.observation_space = spaces.Box(0, 1, (self.w, self.h, layers), dtype=int)
-        self.set_illegal_move_reward(0.)
+        # self.set_illegal_move_reward(0.)
         self.set_max_tile(None)
 
         # Size of square for rendering
@@ -79,6 +89,14 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
         # 新增：Pygame 相关变量
         self.window = None
         self.clock = None
+
+    # ========== 新增：计算角落奖励的方法 ==========
+    def _calculate_corner_reward(self):
+        """计算基于权重矩阵的角落奖励"""
+        # 逐元素相乘后求和
+        corner_reward = np.sum(self.Matrix * self.WEIGHT_MATRIX)
+        corner_reward = corner_reward / self.WEIGHT_MATRIX_SUM
+        return float(corner_reward)
 
     def set_illegal_move_reward(self, reward):
         """Define the reward/penalty for performing an illegal move. Also need
@@ -102,6 +120,7 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
         done = None
         info = {
             'illegal_move': False,
+            'corner_reward': 0.0,  # ========== 新增：初始化角落奖励 ==========
         }
         try:
             score = float(self.move(action))
@@ -110,6 +129,9 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
             self.add_tile()
             done = self.isend()
             reward = float(score)
+            
+            # ========== 新增：有效移动时计算并赋值角落奖励 ==========
+            info['corner_reward'] = self._calculate_corner_reward()
             
             # 成功移动，重置无效计数
             self.illegal_move_count = 0
@@ -128,6 +150,8 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
                 done = False
                 
             reward = self.illegal_move_reward
+            # ========== 新增：非法移动时角落奖励设为0 ==========
+            info['corner_reward'] = 0.0
 
         #print("Am I done? {}".format(done))
         info['highest'] = self.highest()
@@ -224,8 +248,6 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
             self.window = pygame.display.set_mode((window_size, window_size))
             pygame.display.set_caption("2048 Game")
 
-
-            
         if self.clock is None:
             self.clock = pygame.time.Clock()
 
