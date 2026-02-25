@@ -101,14 +101,14 @@ class Game2048RewardWrapper(gym.Wrapper):
     2. 从info中提取corner_reward，乘以指定系数后叠加到log₂合并奖励上
     3. 不修改其他返回值（obs/terminated/truncated/info）
     """
-    def __init__(self, env, corner_coeff: float = 10.0):
+    def __init__(self, env, corner_reward_factor: float = 1):
         """
         参数说明：
         - env: 原始的Game2048Env环境实例
-        - corner_coeff: corner_reward的系数（推荐默认10.0，合并优先设5~8，角落优先设12~15）
+        - corner_reward_factor: corner_reward的系数（推荐默认10.0，合并优先设5~8，角落优先设12~15）
         """
         super().__init__(env)
-        self.corner_coeff = corner_coeff
+        self.corner_reward_factor = corner_reward_factor
 
     def step(self, action):
         """重写step方法，处理奖励逻辑"""
@@ -123,7 +123,7 @@ class Game2048RewardWrapper(gym.Wrapper):
         
         # 2. 处理角落奖励：提取info中的corner_reward并乘以系数
         # 兼容info中无corner_reward的情况（设为0）
-        corner_reward = self.corner_coeff * info.get('corner_reward', 0.0)
+        corner_reward = self.corner_reward_factor * info.get('corner_reward', 0.0)
         
         # 3. 总奖励 = log₂合并奖励 + 系数化角落奖励
         reward += corner_reward
@@ -143,8 +143,8 @@ def make_env_maker(rank, seed=0):
 
     def _init():
         env = gym.make("2048-v0", render_mode="rgb_array", illegal_move_reward=-5.0)
-        env = Log2RewardWrapper(env)
-        # env = Game2048RewardWrapper(env)
+        # env = Log2RewardWrapper(env)
+        env = Game2048RewardWrapper(env)
         # env = NormalizeReward(env)
         env = TimeLimit(env, TIME_STEP_LIMIT)
         env = Monitor(env)
@@ -251,6 +251,13 @@ def make_model(env, name: str, device: str):
 
 
 def main():
+    import resource
+
+# 获取当前限制
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    # 设置新的软限制（例如 2048），但不超过硬限制
+    resource.setrlimit(resource.RLIMIT_NOFILE, (2048, hard))
+
     worker_count = 64
     device = "mps"
     model_name = "qrdqn-conv"
@@ -261,8 +268,8 @@ def main():
     eval_callback = BetterEvalCallback(
         eval_env,
         n_eval_episodes=120,
-        best_model_save_path="./checkpoints/best_model",  # 自动保存得分最高的模型
-        log_path="./logs/eval_results",  # 记录评估结果
+        # best_model_save_path="./checkpoints/best_model",  # 自动保存得分最高的模型
+        # log_path="./logs/eval_results",  # 记录评估结果
         # 这个step不是训练step，而是callback step，要等待并行的才算step1次。建议积极尝试寻找合理的。
         eval_freq=int(3e4),
         deterministic=True,  # 评估时使用确定性动作（DQN 必选）

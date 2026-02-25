@@ -44,13 +44,11 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
 
     # ========== 新增：定义角落奖励的权重矩阵 ==========
     WEIGHT_MATRIX = np.array([
-        [2**0, 2**1, 2**2, 2**3],
-        [2**4, 2**5, 2**6, 2**7],
-        [2**8, 2**9, 2**10, 2**11],
-        [2**12, 2**13, 2**14, 2**15]
+        [1.0, 0.9, 0.8, 0.7],
+        [0.3, 0.4, 0.5, 0.6],
+        [0.2, 0.1, 0.0, -0.1],
+        [-0.5, -0.4, -0.3, -0.2]
     ])
-
-    WEIGHT_MATRIX_SUM = np.sum(WEIGHT_MATRIX)
 
     def __init__(self, render_mode=None, illegal_move_reward:float=0, illegal_move_truncate:int=-1):  # 添加 render_mode 参数
         # 验证 render_mode 合法性
@@ -92,10 +90,18 @@ class Game2048Env(gym.Env):  # gymnasium.Env (aliased as gym)
 
     # ========== 新增：计算角落奖励的方法 ==========
     def _calculate_corner_reward(self):
-        """计算基于权重矩阵的角落奖励"""
-        # 逐元素相乘后求和
-        corner_reward = np.sum(self.Matrix * self.WEIGHT_MATRIX)
-        corner_reward = corner_reward / self.WEIGHT_MATRIX_SUM
+        """计算基于对数尺度的蛇形梯度奖励"""
+        # 如果棋盘全空，返回 0
+        if np.max(self.Matrix) == 0:
+            return 0.0
+        
+        # 1. 将棋盘数值转为 log2 尺度 (0->0, 2->1, 4->2, ..., 2048->11)
+        # 这样能将棋盘状态缩放到与合并奖励相同的量级
+        log_matrix = np.where(self.Matrix > 0, np.log2(self.Matrix), 0)
+
+        # 2. 计算点积：每个位置的对数数值 * 该位置的蛇形权重
+        # 结果将作为一种“状态质量评分”
+        corner_reward = np.sum(log_matrix * self.WEIGHT_MATRIX)
         return float(corner_reward)
 
     def set_illegal_move_reward(self, reward):
