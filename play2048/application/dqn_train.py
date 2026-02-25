@@ -101,7 +101,7 @@ class Game2048RewardWrapper(gym.Wrapper):
     2. 从info中提取corner_reward，乘以指定系数后叠加到log₂合并奖励上
     3. 不修改其他返回值（obs/terminated/truncated/info）
     """
-    def __init__(self, env, corner_reward_factor: float = 1):
+    def __init__(self, env, corner_reward_factor: float = 0.1):
         """
         参数说明：
         - env: 原始的Game2048Env环境实例
@@ -144,7 +144,7 @@ def make_env_maker(rank, seed=0):
     def _init():
         env = gym.make("2048-v0", render_mode="rgb_array", illegal_move_reward=-5.0)
         # env = Log2RewardWrapper(env)
-        env = Game2048RewardWrapper(env)
+        env = Game2048RewardWrapper(env, corner_reward_factor=0.0)
         # env = NormalizeReward(env)
         env = TimeLimit(env, TIME_STEP_LIMIT)
         env = Monitor(env)
